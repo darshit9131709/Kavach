@@ -13,17 +13,28 @@ This repository contains the following contents.
 * Learning data for finger gesture recognition and notebook for learning
 
 # Requirements
-* mediapipe 0.8.1
-* OpenCV 3.4.2 or Later
-* Tensorflow 2.3.0 or Later<br>tf-nightly 2.5.0.dev or later (Only when creating a TFLite for an LSTM model)
+
+* Python 3.10 (recommended)
+* mediapipe 0.10.32
+* tensorflow 2.15.0
+* numpy 1.26.4 (must be <2 for TF 2.15)
+* opencv-python 4.x
+Later<br>tf-nightly 2.5.0.dev or later (Only when creating a TFLite for an LSTM model)
 * scikit-learn 0.23.2 or Later (Only if you want to display the confusion matrix) 
 * matplotlib 3.3.2 or Later (Only if you want to display the confusion matrix)
+⚠️ Important:
+TensorFlow 2.15 does NOT work with NumPy 2.x.
+If you get `_ARRAY_API not found`, downgrade numpy:
+pip install "numpy<2"
 
 # Demo
 Here's how to run the demo using your webcam.
 ```bash
 python app.py
 ```
+This project requires the MediaPipe hand model file:
+
+hand_landmarker.task
 
 The following options can be specified when running the demo.
 * --device<br>Specifying the camera device number (Default：0)
@@ -137,14 +148,3 @@ The image of the model prepared in "[point_history_classification.ipynb](point_h
 The model using "LSTM" is as follows. <br>Please change "use_lstm = False" to "True" when using (tf-nightly required (as of 2020/12/16))<br>
 <img src="https://user-images.githubusercontent.com/37477845/102246817-8368b180-3f42-11eb-9851-23a7b12467aa.png" width="60%">
 
-# Reference
-* [MediaPipe](https://mediapipe.dev/)
-
-# Author
-Kazuhito Takahashi(https://twitter.com/KzhtTkhs)
-
-# Translation and other improvements
-Nikita Kiselov(https://github.com/kinivi)
- 
-# License 
-hand-gesture-recognition-using-mediapipe is under [Apache v2 license](LICENSE).
