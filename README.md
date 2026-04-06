@@ -1,83 +1,132 @@
-# Kavach - Women Safety SaaS Platform
+# Women Safety AI
 
-A production-level women safety SaaS platform built with Next.js 14, MongoDB, and NextAuth.
+A real-time danger prediction and incident reporting system for women's safety in India.
 
-## Tech Stack
+## What it does
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: JavaScript
-- **Database**: MongoDB with Mongoose
-- **Authentication**: NextAuth.js with JWT session strategy
-- **Styling**: Tailwind CSS
+- Predicts the **risk level of a location** using an XGBoost model trained on 20 years of crime data, live news, and crowd-sourced reports
+- Lets **victims report incidents** via free-text or direct location input
+- Risk score combines: historical crime pendency (CSV) + real-time news + user reports (weighted by category)
+
+---
 
 ## Project Structure
 
 ```
-kavach/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/          # Authentication routes
-│   │   ├── (user)/          # User dashboard routes
-│   │   ├── (company)/       # Company/organization routes
-│   │   ├── (admin)/         # Admin panel routes
-│   │   ├── api/             # API routes
-│   │   │   └── auth/        # NextAuth API routes
-│   │   ├── layout.js        # Root layout
-│   │   └── page.js          # Home page
-│   ├── components/          # Reusable React components
-│   │   ├── ui/              # Reusable UI primitives (Badge, StatCard, etc.)
-│   ├── lib/                 # Utility functions and configurations
-│   │   ├── mongodb.js       # MongoDB connection
-│   │   ├── auth.js          # NextAuth configuration
-│   │   ├── api-helpers.js   # Shared API controller helpers (JSON/session/errors)
-│   │   ├── errors.js        # Shared error types
-│   │   ├── services/        # Feature services (DB/model operations)
-│   │   ├── mocks/           # UI mock data for dashboards
-│   │   └── data/            # Static curated data (e.g. store products)
-│   │   └── utils.js         # Utility functions
-│   ├── models/              # Mongoose models
-│   └── middleware.js        # Next.js middleware
-├── .env.example             # Environment variables template
-└── package.json
+women_safety_ai_new/
+├── prediction_app.py   # Risk prediction service (port 8000)
+├── report_app.py       # Victim reporting service (port 8001)
+├── train_model.py      # XGBoost model training script
+├── events.db           # Auto-created SQLite database
 ```
 
-## Getting Started
+---
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+## Setup
 
-2. **Set up environment variables**:
-   - Copy `.env.example` to `.env.local`
-   - Fill in your MongoDB URI, NextAuth secret, and other required values
+### 1. Install dependencies
 
-3. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
+```bash
+pip install fastapi uvicorn requests pandas joblib xgboost scikit-learn kagglehub feedparser
+```
 
-4. **Open [http://localhost:3000](http://localhost:3000)** in your browser
+### 2. Train the model
 
-## Environment Variables
+```bash
+python train_model.py
+```
 
-See `.env.example` for all required environment variables.
+This downloads the Kaggle dataset, trains the XGBoost model, and saves it to `D:/women_safety_dataset/xgb_model.pkl`.
 
-### Required Variables:
-- `MONGODB_URI` - MongoDB connection string
-- `NEXTAUTH_URL` - Base URL of your application
-- `NEXTAUTH_SECRET` - Secret key for NextAuth (generate a random string)
-- `JWT_SECRET` - Secret key for JWT tokens
+### 3. Update paths in `prediction_app.py`
 
-## Development
+```python
+MODEL_PATH = "D:/women_safety_dataset/xgb_model.pkl"
+CSV_PATH = r"D:\Downloads\RS_Session_266_AU_2030_1.csv"
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+Change these to match where the files are on your machine.
 
-## Architecture Notes
+### 4. Run the services
 
-- **Route Groups**: Using Next.js route groups `(auth)`, `(user)`, `(company)`, `(admin)` for organized routing without affecting URL structure
-- **Separation of concerns**: API routes are thin controllers; domain logic lives in `src/lib/services/*`; persistence in `src/models/*`.
-- **Production readiness**: Use strong secrets (`NEXTAUTH_SECRET`, `JWT_SECRET`), validate inputs, and add rate limiting before production.
+```bash
+uvicorn prediction_app:app --port 8000
+uvicorn report_app:app --port 8001
+```
+
+---
+
+## API Endpoints
+
+### Prediction Service — `http://localhost:8000`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| POST | `/smart_risk?user_input=going to Delhi` | Returns risk score for a location |
+
+**Example response:**
+```json
+{
+  "detected_location": "Delhi, India",
+  "risk_score": 0.62,
+  "message": "Moderate",
+  "recent": 3,
+  "mid": 1,
+  "old": 0
+}
+```
+
+### Report Service — `http://localhost:8001`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| POST | `/report_from_text?user_input=felt unsafe near Patna&category=harassment` | Report via free text |
+| POST | `/report_followup?location=Patna&category=stalking` | Report with explicit location |
+
+**Categories:** `harassment`, `assault`, `stalking`, `unsafe_area`
+
+---
+
+## How the Risk Score Works
+
+```
+Risk Score = 0.4 × baseline + 0.5 × realtime + 0.1 × mid_term
+
+baseline   → XGBoost prediction from historical crime data
+realtime   → news events + weighted user reports (last 6 hours)
+mid_term   → events from last 6–24 hours
+```
+
+User reports are weighted by severity:
+- `assault` → 5
+- `stalking` → 4
+- `harassment` → 3
+- `unsafe_area` → 2
+
+---
+
+## External APIs Used
+
+| API | Purpose | Key required |
+|-----|---------|--------------|
+| [NewsAPI](https://newsapi.org) | Fetch real-time crime news | Yes (free tier) |
+| [OpenCage Geocoding](https://opencagedata.com) | Convert place names to coordinates | Yes (free tier) |
+
+---
+
+## Dataset
+
+- **Crime pendency data:** `RS_Session_266_AU_2030_1.csv` (Parliament dataset)
+- **Training data:** [Crimes Against Women in India — 20 Year Analysis](https://www.kaggle.com/datasets/harigoshika/crimes-against-women-in-india-a-20-year-analysis) (auto-downloaded by `train_model.py`)
+
+---
+
+## Planned Improvements
+
+- [ ] Time-of-day factor (higher risk at night)
+- [ ] Background news refresh using APScheduler
+- [ ] Google News RSS as additional data source
+- [ ] Exponential decay on old reports
+- [ ] Merge into single deployable service
