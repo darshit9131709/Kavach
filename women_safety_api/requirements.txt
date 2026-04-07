@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+requests
+pandas
+joblib
+xgboost
+scikit-learn
+feedparser
+apscheduler
+python-dotenv
+kagglehub
