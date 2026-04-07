@@ -1,0 +1,6 @@
+mediapipe
+opencv-python
+numpy
+requests
+tensorflow==2.15.0
+scikit-learn

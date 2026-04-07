@@ -540,6 +540,26 @@ def report_location(location: str, category: str):
     }
 
 
+@app.post("/sos")
+def sos_trigger():
+    """
+    Called automatically when the SOS hand gesture is held for 3 seconds.
+    Logs the SOS event with timestamp. No location required — triggered by gesture.
+    """
+    cursor.execute(
+        "INSERT INTO user_reports VALUES (NULL, NULL, NULL, ?, ?)",
+        ("sos", datetime.utcnow().isoformat())
+    )
+    conn.commit()
+
+    return {
+        "status":    "sos_received",
+        "timestamp": datetime.utcnow().isoformat(),
+        "message":   "SOS alert received. Stay safe.",
+        "emergency": {"police": "100", "women_helpline": "1091", "emergency": "112"}
+    }
+
+
 @app.get("/")
 def home():
     return {
@@ -549,6 +569,7 @@ def home():
         "endpoints": {
             "POST /smart_risk":      "Get risk assessment for a location",
             "POST /report":          "Report an incident via free text",
-            "POST /report_location": "Report with explicit location name"
+            "POST /report_location": "Report with explicit location name",
+            "POST /sos":             "Triggered by SOS hand gesture"
         }
     }

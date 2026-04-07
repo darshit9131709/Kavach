@@ -4,6 +4,9 @@ import csv
 import copy
 import argparse
 import itertools
+import time
+import threading
+import requests
 from collections import Counter
 from collections import deque
 #from mediapipe.tasks.python import mp_image
@@ -138,6 +141,16 @@ def main():
     mode = 0
     frame_timestamp = 0
 
+    # SOS tracking
+    SOS_HOLD_SECONDS = 3        # hold gesture for 3 seconds to trigger
+    SOS_COOLDOWN_SECONDS = 30   # wait 30s before allowing another trigger
+    SOS_BACKEND_URL = "http://127.0.0.1:8000/sos"
+    SOS_LABEL_INDEX = 4
+
+    sos_start_time = None       # when SOS gesture was first detected
+    sos_last_triggered = 0      # timestamp of last SOS trigger
+    sos_triggered = False       # flag to show alert on screen
+
     while True:
         fps = cvFpsCalc.get()
 
@@ -195,6 +208,29 @@ def main():
                 else:
                     point_history.append([0, 0])
 
+                # SOS gesture detection
+                now = time.time()
+                if hand_sign_id == SOS_LABEL_INDEX:
+                    if sos_start_time is None:
+                        sos_start_time = now
+                    held = now - sos_start_time
+                    # draw countdown on screen
+                    remaining = max(0, SOS_HOLD_SECONDS - held)
+                    cv.putText(debug_image,
+                               f"SOS HOLD: {remaining:.1f}s",
+                               (10, 150), cv.FONT_HERSHEY_SIMPLEX,
+                               1.0, (0, 0, 255), 3, cv.LINE_AA)
+                    if held >= SOS_HOLD_SECONDS and (now - sos_last_triggered) > SOS_COOLDOWN_SECONDS:
+                        sos_last_triggered = now
+                        sos_triggered = True
+                        threading.Thread(
+                            target=requests.post,
+                            args=(SOS_BACKEND_URL,),
+                            daemon=True
+                        ).start()
+                else:
+                    sos_start_time = None
+
                 # Finger gesture classification
                 finger_gesture_id = 0
                 point_history_len = len(pre_processed_point_history_list)
@@ -222,6 +258,17 @@ def main():
 
         debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number)
+
+        # SOS alert overlay
+        if sos_triggered:
+            cv.rectangle(debug_image, (0, 0),
+                         (debug_image.shape[1], debug_image.shape[0]),
+                         (0, 0, 255), 10)
+            cv.putText(debug_image, "!! SOS SENT !!",
+                       (debug_image.shape[1] // 2 - 180, debug_image.shape[0] // 2),
+                       cv.FONT_HERSHEY_SIMPLEX, 2.0, (0, 0, 255), 5, cv.LINE_AA)
+            if time.time() - sos_last_triggered > 3:
+                sos_triggered = False
 
         # Screen reflection #############################################################
         cv.imshow('Hand Gesture Recognition', debug_image)
