@@ -37,7 +37,6 @@ export const ROUTE_ROLE_MAP = {
   // User routes
   '/user': ROLES.USER,
   '/dashboard': ROLES.USER,
-  '/chat': ROLES.USER,
   '/store': ROLES.USER,
   
   // Company routes

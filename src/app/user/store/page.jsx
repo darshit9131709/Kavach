@@ -166,46 +166,39 @@ export default function SafetyStorePage() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800 px-2 pb-6 pt-3 flex justify-around items-end z-40">
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
-        >
-          <span className="material-symbols-outlined">home</span>
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-rose-500 transition-colors"
-        >
-          <span className="material-symbols-outlined text-rose-500">
-            shield_with_heart
-          </span>
-          <span className="text-[10px] font-medium text-rose-500">SOS</span>
-        </Link>
-        <Link
-          href="/chat"
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
-        >
-          <span className="material-symbols-outlined">chat_bubble</span>
-          <span className="text-[10px] font-medium">Chat</span>
-        </Link>
-        <Link
-          href="/store"
-          className="flex flex-col items-center gap-1 text-primary"
-        >
-          <div className="bg-primary/10 px-4 py-1 rounded-full flex flex-col items-center">
-            <span className="material-symbols-outlined fill-1">storefront</span>
-            <span className="text-[10px] font-bold">Store</span>
-          </div>
-        </Link>
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
-        >
-          <span className="material-symbols-outlined">account_circle</span>
-          <span className="text-[10px] font-medium">Profile</span>
-        </Link>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800 px-6 py-3 z-40">
+        <div className="max-w-md mx-auto grid grid-cols-4 gap-1">
+          <Link
+            href="/user/dashboard"
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
+          >
+            <span className="material-symbols-outlined">home</span>
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+          <Link
+            href="/user/dashcam"
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
+          >
+            <span className="material-symbols-outlined">videocam</span>
+            <span className="text-[10px] font-medium">Dashcam</span>
+          </Link>
+          <Link
+            href="/user/store"
+            className="flex flex-col items-center gap-1 text-primary"
+          >
+            <div className="bg-primary/10 px-4 py-1 rounded-full flex flex-col items-center">
+              <span className="material-symbols-outlined fill-1">storefront</span>
+              <span className="text-[10px] font-bold">Store</span>
+            </div>
+          </Link>
+          <Link
+            href="/user/profile"
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors"
+          >
+            <span className="material-symbols-outlined">account_circle</span>
+            <span className="text-[10px] font-medium">Profile</span>
+          </Link>
+        </div>
       </nav>
     </div>
   );

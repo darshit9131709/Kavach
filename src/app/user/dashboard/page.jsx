@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,6 +10,9 @@ import EmergencySOSButton from "@/components/dashboard/EmergencySOSButton";
 import LiveLocationCard from "@/components/dashboard/LiveLocationCard";
 import HelplineDirectory from "@/components/dashboard/HelplineDirectory";
 import SafetyStore from "@/components/dashboard/SafetyStore";
+import FakeCallOverlay from "@/components/FakeCallOverlay";
+import FakeCallSettings from "@/components/FakeCallSettings";
+import SirenButton from "@/components/SirenButton";
 
 export default function UserDashboardPage() {
   const pathname = usePathname();
@@ -22,9 +25,15 @@ export default function UserDashboardPage() {
   const [trustedContacts, setTrustedContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(true);
 
+  // Fake Call state
+  const [showFakeCallSettings, setShowFakeCallSettings] = useState(false);
+  const [showFakeCall, setShowFakeCall] = useState(false);
+  const [fakeCallCaller, setFakeCallCaller] = useState("Mom");
+  const fakeCallTimerRef = useRef(null);
+
   const isActive = (path) => pathname === path;
 
-  // ✅ Dynamic name from session
+  // Dynamic name from session
   const userName = session?.user?.name?.split(" ")[0] || "User";
 
   useLocationTracking(
@@ -69,6 +78,15 @@ export default function UserDashboardPage() {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       setIsTrackingEnabled(false);
+    };
+  }, []);
+
+  // Cleanup fake call timer on unmount
+  useEffect(() => {
+    return () => {
+      if (fakeCallTimerRef.current) {
+        clearTimeout(fakeCallTimerRef.current);
+      }
     };
   }, []);
 
@@ -125,9 +143,27 @@ export default function UserDashboardPage() {
     window.location.href = `tel:${contact.phone}`;
   };
 
+  // Fake Call handlers
+  const handleFakeCallStart = useCallback(({ callerName, delay }) => {
+    setFakeCallCaller(callerName);
+    setShowFakeCallSettings(false);
+
+    if (delay > 0) {
+      fakeCallTimerRef.current = setTimeout(() => {
+        setShowFakeCall(true);
+      }, delay * 1000);
+    } else {
+      setShowFakeCall(true);
+    }
+  }, []);
+
+  const handleFakeCallDismiss = useCallback(() => {
+    setShowFakeCall(false);
+  }, []);
+
   return (
     <div className="bg-[#f7f6f8] dark:bg-[#181121] font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
-      {/* ✅ Pass dynamic userName from session */}
+      {/* Pass dynamic userName from session */}
       <UserDashboardHeader
         userName={userName}
         safetyStatus="Secure"
@@ -156,7 +192,7 @@ export default function UserDashboardPage() {
           </div>
         )}
 
-        {/* Emergency SOS Button — only one, here in main content */}
+        {/* Emergency SOS Button */}
         <EmergencySOSButton
           onHoldComplete={handleSOSComplete}
           onError={handleSOSError}
@@ -167,7 +203,30 @@ export default function UserDashboardPage() {
           location="Mumbai"
           isTrackingEnabled={isTrackingEnabled}
           onToggleTracking={handleToggleTracking}
-          onViewMap={() => router.push("/user/map")}
+          onViewMap={() => {
+            // Open live location in Google Maps
+            try {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    window.open(
+                      `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`,
+                      "_blank",
+                    );
+                  },
+                  () => {
+                    window.open("https://maps.google.com/", "_blank");
+                  },
+                  { timeout: 5000 },
+                );
+              } else {
+                window.open("https://maps.google.com/", "_blank");
+              }
+            } catch (err) {
+              console.error("Map open error:", err);
+              window.open("https://maps.google.com/", "_blank");
+            }
+          }}
           lastUpdate={lastLocationUpdate}
         />
 
@@ -223,44 +282,58 @@ export default function UserDashboardPage() {
           </div>
         </section>
 
-        {/* Quick Actions */}
-        <section className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => console.log("Fake call triggered")}
-            className="bg-white dark:bg-slate-800 p-4 rounded-xl flex flex-col items-center gap-2 shadow-sm border border-slate-100 dark:border-slate-700 active:bg-[#8b47eb]/5 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[#8b47eb] text-3xl">
-              phone_callback
-            </span>
-            <span className="text-xs font-bold">Fake Call</span>
-          </button>
-          <button
-            onClick={() => console.log("Fake siren triggered")}
-            className="bg-white dark:bg-slate-800 p-4 rounded-xl flex flex-col items-center gap-2 shadow-sm border border-slate-100 dark:border-slate-700 active:bg-[#8b47eb]/5 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[#8b47eb] text-3xl">
-              volume_up
-            </span>
-            <span className="text-xs font-bold">Fake Siren</span>
-          </button>
-          <button
-            onClick={() => router.push("/user/chat")}
-            className="bg-[#8b47eb] p-4 rounded-xl flex flex-col items-center gap-2 shadow-sm border border-[#8b47eb]/20 text-white hover:bg-[#8b47eb]/90 transition-colors"
-          >
-            <span className="material-symbols-outlined text-3xl">
-              smart_toy
-            </span>
-            <span className="text-xs font-bold">Arya AI</span>
-          </button>
+        {/* Quick Actions — 3 buttons in one row */}
+        <section>
+          <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-3 px-1">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {/* Fake Call */}
+            <button
+              onClick={() => setShowFakeCallSettings(true)}
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl flex flex-col items-center gap-3 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all hover:shadow-md group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors">
+                <span className="material-symbols-outlined text-[#8b47eb] text-2xl">
+                  phone_callback
+                </span>
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-bold block">Fake Call</span>
+                <span className="text-[10px] text-slate-400">
+                  Simulate call
+                </span>
+              </div>
+            </button>
+
+            {/* Fake Siren */}
+            <SirenButton className="p-5 rounded-2xl shadow-sm hover:shadow-md group" />
+
+            {/* Dashcam */}
+            <button
+              onClick={() => router.push("/user/dashcam")}
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl flex flex-col items-center gap-3 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all hover:shadow-md group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center group-hover:bg-rose-100 dark:group-hover:bg-rose-900/30 transition-colors">
+                <span className="material-symbols-outlined text-rose-500 text-2xl">
+                  videocam
+                </span>
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-bold block">Dashcam</span>
+                <span className="text-[10px] text-slate-400">AI detection</span>
+              </div>
+            </button>
+          </div>
         </section>
 
         <HelplineDirectory />
         <SafetyStore onViewAll={() => router.push("/user/store")} />
       </main>
 
-      {/* ✅ Bottom Nav — SOS removed, replaced with Map */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-6 py-3 z-50">
-        <div className="max-w-md mx-auto flex justify-between items-center">
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 py-3 z-50">
+        <div className="max-w-md mx-auto grid grid-cols-3 gap-16">
           <Link
             href="/user/dashboard"
             className={`flex flex-col items-center gap-1 ${isActive("/user/dashboard") ? "text-[#8b47eb]" : "text-slate-400 dark:text-slate-500"}`}
@@ -273,25 +346,14 @@ export default function UserDashboardPage() {
             </span>
           </Link>
           <Link
-            href="/user/map"
-            className={`flex flex-col items-center gap-1 ${isActive("/user/map") ? "text-[#8b47eb]" : "text-slate-400 dark:text-slate-500"}`}
+            href="/user/dashcam"
+            className={`flex flex-col items-center gap-1 ${isActive("/user/dashcam") ? "text-[#8b47eb]" : "text-slate-400 dark:text-slate-500"}`}
           >
-            <span className="material-symbols-outlined">map</span>
+            <span className="material-symbols-outlined">videocam</span>
             <span
-              className={`text-[10px] ${isActive("/user/map") ? "font-bold" : "font-medium"}`}
+              className={`text-[10px] ${isActive("/user/dashcam") ? "font-bold" : "font-medium"}`}
             >
-              Map
-            </span>
-          </Link>
-          <Link
-            href="/user/chat"
-            className={`flex flex-col items-center gap-1 ${isActive("/user/chat") ? "text-[#8b47eb]" : "text-slate-400 dark:text-slate-500"}`}
-          >
-            <span className="material-symbols-outlined">chat_bubble</span>
-            <span
-              className={`text-[10px] ${isActive("/user/chat") ? "font-bold" : "font-medium"}`}
-            >
-              Chat
+              Dashcam
             </span>
           </Link>
           <Link
@@ -305,19 +367,22 @@ export default function UserDashboardPage() {
               Store
             </span>
           </Link>
-          <Link
-            href="/user/profile"
-            className={`flex flex-col items-center gap-1 ${isActive("/user/profile") ? "text-[#8b47eb]" : "text-slate-400 dark:text-slate-500"}`}
-          >
-            <span className="material-symbols-outlined">account_circle</span>
-            <span
-              className={`text-[10px] ${isActive("/user/profile") ? "font-bold" : "font-medium"}`}
-            >
-              Profile
-            </span>
-          </Link>
         </div>
       </nav>
+
+      {/* Fake Call Settings Modal */}
+      <FakeCallSettings
+        visible={showFakeCallSettings}
+        onClose={() => setShowFakeCallSettings(false)}
+        onStart={handleFakeCallStart}
+      />
+
+      {/* Fake Call Overlay */}
+      <FakeCallOverlay
+        callerName={fakeCallCaller}
+        visible={showFakeCall}
+        onDismiss={handleFakeCallDismiss}
+      />
     </div>
   );
 }
