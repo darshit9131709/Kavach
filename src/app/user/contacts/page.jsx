@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from "next-auth/react";
 import Link from 'next/link';
 import UserDashboardHeader from '@/components/dashboard/UserDashboardHeader';
-
 export default function ContactsPage() {
   const router = useRouter();
+   const { data: session } = useSession(); 
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -16,6 +17,7 @@ export default function ContactsPage() {
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [relation, setRelation] = useState('');
 
   // Fetch contacts on mount
@@ -49,7 +51,7 @@ export default function ContactsPage() {
     setSuccess('');
 
     if (!name.trim() || !phone.trim() || !relation.trim()) {
-      setError('Please fill in all fields');
+      setError('Please fill in all fields (Email is optional)');
       return;
     }
 
@@ -62,6 +64,7 @@ export default function ContactsPage() {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
+          email: email.trim(),
           relation: relation.trim(),
         }),
       });
@@ -75,6 +78,7 @@ export default function ContactsPage() {
       // Reset form
       setName('');
       setPhone('');
+      setEmail('');
       setRelation('');
       setIsAdding(false);
       setSuccess('Contact added successfully!');
@@ -128,11 +132,12 @@ export default function ContactsPage() {
   };
 
   return (
+    
     <div className="bg-[#f7f6f8] dark:bg-[#181121] font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
       <UserDashboardHeader
-        userName="Aditi"
+        userName={session?.user?.name || "User"}
         safetyStatus="Secure"
-        onNotificationClick={() => router.push('/user/notifications')}
+        onNotificationClick={() => router.push("/user/notifications")}
       />
       <main className="flex-1 px-4 pb-24 max-w-md mx-auto w-full space-y-6">
         {/* Header */}
@@ -150,7 +155,7 @@ export default function ContactsPage() {
             className="size-10 rounded-full bg-[#8b47eb] text-white flex items-center justify-center shadow-lg shadow-[#8b47eb]/20 hover:bg-[#8b47eb]/90 transition-colors"
           >
             <span className="material-symbols-outlined">
-              {isAdding ? 'close' : 'add'}
+              {isAdding ? "close" : "add"}
             </span>
           </button>
         </div>
@@ -161,9 +166,11 @@ export default function ContactsPage() {
             <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-lg">
               check_circle
             </span>
-            <p className="text-sm text-green-600 dark:text-green-400 flex-1">{success}</p>
+            <p className="text-sm text-green-600 dark:text-green-400 flex-1">
+              {success}
+            </p>
             <button
-              onClick={() => setSuccess('')}
+              onClick={() => setSuccess("")}
               className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
             >
               <span className="material-symbols-outlined text-lg">close</span>
@@ -177,9 +184,11 @@ export default function ContactsPage() {
             <span className="material-symbols-outlined text-red-600 dark:text-red-400 text-lg">
               error
             </span>
-            <p className="text-sm text-red-600 dark:text-red-400 flex-1">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 flex-1">
+              {error}
+            </p>
             <button
-              onClick={() => setError('')}
+              onClick={() => setError("")}
               className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
             >
               <span className="material-symbols-outlined text-lg">close</span>
@@ -203,7 +212,7 @@ export default function ContactsPage() {
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
-                    setError('');
+                    setError("");
                   }}
                   placeholder="John Doe"
                   required
@@ -220,10 +229,26 @@ export default function ContactsPage() {
                   value={phone}
                   onChange={(e) => {
                     setPhone(e.target.value);
-                    setError('');
+                    setError("");
                   }}
                   placeholder="+91 9876543210"
                   required
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#8b47eb]/20 focus:border-[#8b47eb] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="contact@example.com"
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#8b47eb]/20 focus:border-[#8b47eb] transition-all"
                 />
               </div>
@@ -237,7 +262,7 @@ export default function ContactsPage() {
                   value={relation}
                   onChange={(e) => {
                     setRelation(e.target.value);
-                    setError('');
+                    setError("");
                   }}
                   placeholder="e.g., Mom, Dad, Friend"
                   required
@@ -250,10 +275,10 @@ export default function ContactsPage() {
                   type="button"
                   onClick={() => {
                     setIsAdding(false);
-                    setName('');
-                    setPhone('');
-                    setRelation('');
-                    setError('');
+                    setName("");
+                    setPhone("");
+                    setRelation("");
+                    setError("");
                   }}
                   className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
@@ -282,7 +307,9 @@ export default function ContactsPage() {
             <span className="material-symbols-outlined text-slate-400 text-6xl mb-4 block">
               contacts
             </span>
-            <p className="text-slate-500 dark:text-slate-400 mb-2">No trusted contacts yet</p>
+            <p className="text-slate-500 dark:text-slate-400 mb-2">
+              No trusted contacts yet
+            </p>
             <p className="text-sm text-slate-400 dark:text-slate-500">
               Add contacts to notify them during emergencies
             </p>
@@ -310,6 +337,11 @@ export default function ContactsPage() {
                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
                       {contact.phone}
                     </p>
+                    {contact.email && (
+                      <p className="text-sm text-[#8b47eb] mt-0.5 truncate">
+                        {contact.email}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
