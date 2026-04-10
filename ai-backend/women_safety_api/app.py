@@ -3,23 +3,86 @@ import re
 import math
 import sqlite3
 import joblib
+import shutil
 import requests
 import feedparser
 import pandas as pd
 from datetime import datetime, timedelta
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
+from openai import OpenAI
+from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
+import kagglehub
 
 load_dotenv()
 
 # ---------------- CONFIG ----------------
 NEWS_API_KEY     = os.getenv("NEWS_API_KEY")
 OPENCAGE_API_KEY = os.getenv("OPENCAGE_API_KEY")
-MODEL_PATH       = os.getenv("MODEL_PATH", "xgb_model.pkl")
-CSV_PATH         = os.getenv("CSV_PATH", "RS_Session_266_AU_2030_1.csv")
+OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY")
+
+# Paths — relative to project folder for deployment
+MODEL_PATH = os.getenv("MODEL_PATH", "model_files/xgb_model.pkl")
+CSV_PATH   = os.getenv("CSV_PATH",   "model_files/RS_Session_266_AU_2030_1.csv")
+
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI(title="Women Safety AI", version="2.0")
+
+# CORS — allows Next.js frontend (port 3000) to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------- AUTO SETUP ----------------
+def setup_model_and_data():
+    """Download dataset and train model if not present. Runs on startup."""
+    os.makedirs("model_files", exist_ok=True)
+
+    # Download CSV if missing
+    if not os.path.exists(CSV_PATH):
+        print("[SETUP] Downloading dataset from Kaggle...")
+        try:
+            path = kagglehub.dataset_download(
+                "harigoshika/crimes-against-women-in-india-a-20-year-analysis"
+            )
+            for file in os.listdir(path):
+                if file.endswith(".csv"):
+                    shutil.copy(os.path.join(path, file), CSV_PATH)
+                    print(f"[SETUP] CSV saved to {CSV_PATH}")
+                    break
+        except Exception as e:
+            print(f"[SETUP ERROR] Could not download dataset: {e}")
+
+    # Train and save model if missing
+    if not os.path.exists(MODEL_PATH) and os.path.exists(CSV_PATH):
+        print("[SETUP] Training model...")
+        try:
+            df = pd.read_csv(CSV_PATH).fillna(0)
+            crime_cols = df.columns[2:]
+            df["total_crime"] = df[crime_cols].sum(axis=1)
+            df["risk_score"]  = df["total_crime"] / df["total_crime"].max()
+            df["State_enc"]   = df.iloc[:, 0].astype("category").cat.codes
+
+            X = df[["State_enc", df.columns[1], "total_crime"]].values
+            y = df["risk_score"].values
+            X_train, X_test, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+
+            mdl = XGBRegressor(n_estimators=200, learning_rate=0.1, max_depth=5, random_state=42)
+            mdl.fit(X_train, y_train)
+            import joblib as jl
+            jl.dump(mdl, MODEL_PATH)
+            print(f"[SETUP] Model saved to {MODEL_PATH}")
+        except Exception as e:
+            print(f"[SETUP ERROR] Could not train model: {e}")
+
+setup_model_and_data()
 model = joblib.load(MODEL_PATH)
 
 CATEGORY_WEIGHTS = {
@@ -411,6 +474,47 @@ def compute(lat, lon):
 
     return score, state, baseline, realtime, mid, r, m, o, news_count, report_count, time_label
 
+# ---------------- LLM SUMMARY ----------------
+def generate_risk_summary(location, score, risk_level, time_label, recent, state):
+    try:
+        prompt = f"""You are a women safety assistant for India. Based on the data below, write a 2-3 sentence natural language safety summary. Be direct, empathetic, and practical.
+
+Location: {location}
+State: {state}
+Risk Level: {risk_level} (score: {score}/1.0)
+Time Context: {time_label}
+Incidents in last 6 hours nearby: {recent}
+
+Write only the summary, no headings or bullet points."""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=120,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[LLM ERROR] {e}")
+        return None
+
+
+def generate_report_summary(location, category):
+    try:
+        prompt = f"""You are a women safety assistant for India. A woman just reported a {category} incident near {location}. Write a 2-sentence empathetic acknowledgement that validates her experience and reminds her of emergency helplines (1091 for women, 112 for emergency). Be warm and supportive. Write only the message."""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=100,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[LLM ERROR] {e}")
+        return None
+
+
 # ---------------- SAFETY ADVICE ----------------
 def get_advice(score):
     if score > 0.7:
@@ -475,6 +579,7 @@ def smart_risk(user_input: str):
             "user_reports":  report_count
         },
         "safety_advice": get_advice(score),
+        "summary":       generate_risk_summary(location_name, round(score, 2), risk_level, time_label, round(r, 1), state),
         "emergency":     {"police": "100", "women_helpline": "1091", "emergency": "112"}
     }
 
@@ -506,7 +611,7 @@ def report(user_input: str, category: str):
         "status":   "reported",
         "location": location_name,
         "category": category,
-        "message":  "Thank you for reporting. Your report helps keep others safe.",
+        "message":  generate_report_summary(location_name, category) or "Thank you for reporting. Your report helps keep others safe.",
         "support":  {"women_helpline": "1091", "emergency": "112"}
     }
 
