@@ -16,6 +16,7 @@ export default function ContactsPage() {
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [relation, setRelation] = useState('');
 
   // Fetch contacts on mount
@@ -49,7 +50,7 @@ export default function ContactsPage() {
     setSuccess('');
 
     if (!name.trim() || !phone.trim() || !relation.trim()) {
-      setError('Please fill in all fields');
+      setError('Please fill in all fields (Email is optional)');
       return;
     }
 
@@ -62,6 +63,7 @@ export default function ContactsPage() {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
+          email: email.trim(),
           relation: relation.trim(),
         }),
       });
@@ -75,6 +77,7 @@ export default function ContactsPage() {
       // Reset form
       setName('');
       setPhone('');
+      setEmail('');
       setRelation('');
       setIsAdding(false);
       setSuccess('Contact added successfully!');
@@ -230,6 +233,22 @@ export default function ContactsPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="contact@example.com"
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#8b47eb]/20 focus:border-[#8b47eb] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Relation
                 </label>
                 <input
@@ -310,6 +329,11 @@ export default function ContactsPage() {
                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
                       {contact.phone}
                     </p>
+                    {contact.email && (
+                      <p className="text-sm text-[#8b47eb] mt-0.5 truncate">
+                        {contact.email}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

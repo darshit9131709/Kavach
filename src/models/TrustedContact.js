@@ -21,6 +21,13 @@ const TrustedContactSchema = new mongoose.Schema(
       trim: true,
       match: [/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/, 'Please provide a valid phone number'],
     },
+    email: {
+      type: String,
+      required: false,
+      trim: true,
+      lowercase: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email address'],
+    },
     relation: {
       type: String,
       required: [true, 'Relation is required'],

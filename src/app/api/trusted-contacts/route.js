@@ -15,7 +15,7 @@ export async function POST(request) {
     const session = await requireSession('Unauthorized. Please log in to continue.');
 
     const body = await request.json();
-    const { name, phone, relation } = body;
+    const { name, phone, email, relation } = body;
 
     // Validation
     if (!name || !phone || !relation) {
@@ -27,6 +27,7 @@ export async function POST(request) {
       userId: session.user.id,
       name,
       phone,
+      email,
       relation,
     });
 
@@ -37,6 +38,7 @@ export async function POST(request) {
           id: contact._id.toString(),
           name: contact.name,
           phone: contact.phone,
+          email: contact.email,
           relation: contact.relation,
           createdAt: contact.createdAt,
         },
@@ -70,6 +72,7 @@ export async function GET(request) {
         id: contact._id.toString(),
         name: contact.name,
         phone: contact.phone,
+        email: contact.email,
         relation: contact.relation,
         createdAt: contact.createdAt,
       })),

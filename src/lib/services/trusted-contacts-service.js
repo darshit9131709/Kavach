@@ -1,7 +1,7 @@
 import connectDB from '@/lib/mongodb';
 import TrustedContact from '@/models/TrustedContact';
 
-export async function createTrustedContact({ userId, name, phone, relation }) {
+export async function createTrustedContact({ userId, name, phone, email, relation }) {
   await connectDB();
 
   const existingContact = await TrustedContact.findOne({
@@ -19,6 +19,7 @@ export async function createTrustedContact({ userId, name, phone, relation }) {
     userId,
     name: name.trim(),
     phone: phone.trim(),
+    email: email ? email.trim() : undefined,
     relation: relation.trim(),
   });
 }
